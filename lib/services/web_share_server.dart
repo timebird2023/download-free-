@@ -229,10 +229,42 @@ class WebShareServer {
     await response.close();
   }
 
+
+  Future<bool> _isPathAllowed(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) return false;
+      final canonicalPath = file.resolveSymbolicLinksSync();
+      if (canonicalPath.contains(".vault_private")) return false;
+
+      final downloadedFiles = await _backend.getDownloadedFiles();
+      for (final f in downloadedFiles) {
+        try {
+          if (f.resolveSymbolicLinksSync() == canonicalPath) {
+            return true;
+          }
+        } catch (_) {
+          if (f.path == filePath || f.path == canonicalPath) {
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _serveDownload(HttpRequest request) async {
     final filePath = request.uri.queryParameters['file'];
     if (filePath == null) {
       request.response.statusCode = HttpStatus.badRequest;
+      await request.response.close();
+      return;
+    }
+    if (!await _isPathAllowed(filePath)) {
+      request.response.statusCode = HttpStatus.forbidden;
+      request.response.write("Access denied");
       await request.response.close();
       return;
     }
@@ -258,6 +290,12 @@ class WebShareServer {
     final filePath = request.uri.queryParameters['file'];
     if (filePath == null) {
       request.response.statusCode = HttpStatus.badRequest;
+      await request.response.close();
+      return;
+    }
+    if (!await _isPathAllowed(filePath)) {
+      request.response.statusCode = HttpStatus.forbidden;
+      request.response.write("Access denied");
       await request.response.close();
       return;
     }

@@ -15,7 +15,7 @@ class LocalVideoPlayerScreen extends StatefulWidget {
 }
 
 class _LocalVideoPlayerScreenState extends State<LocalVideoPlayerScreen> {
-  late VideoPlayerController _videoPlayerController;
+  VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
   bool _isError = false;
   bool _isBackgroundAudioEnabled = false;
@@ -35,13 +35,14 @@ class _LocalVideoPlayerScreenState extends State<LocalVideoPlayerScreen> {
 
   Future<void> _initPlayer() async {
     try {
-      _videoPlayerController = VideoPlayerController.file(widget.file);
-      await _videoPlayerController.initialize();
+      final controller = VideoPlayerController.file(widget.file);
+      _videoPlayerController = controller;
+      await controller.initialize();
 
       if (mounted) {
         setState(() {
           _chewieController = ChewieController(
-            videoPlayerController: _videoPlayerController,
+            videoPlayerController: _videoPlayerController!,
             autoPlay: true,
             looping: _isLooping,
             allowFullScreen: true,
@@ -119,7 +120,7 @@ class _LocalVideoPlayerScreenState extends State<LocalVideoPlayerScreen> {
                       trailing: _playbackSpeed == s ? const Icon(Icons.check_rounded, color: AppColors.cyan) : null,
                       onTap: () {
                         setState(() => _playbackSpeed = s);
-                        _videoPlayerController.setPlaybackSpeed(s);
+                        _videoPlayerController?.setPlaybackSpeed(s);
                         Navigator.pop(ctx);
                       },
                     )),
@@ -133,9 +134,9 @@ class _LocalVideoPlayerScreenState extends State<LocalVideoPlayerScreen> {
 
   @override
   void dispose() {
+    _chewieController?.dispose();
     if (!_isBackgroundAudioEnabled) {
-      _videoPlayerController.dispose();
-      _chewieController?.dispose();
+      _videoPlayerController?.dispose();
     }
     super.dispose();
   }
@@ -195,8 +196,8 @@ class _LocalVideoPlayerScreenState extends State<LocalVideoPlayerScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: AspectRatio(
-                          aspectRatio: _videoPlayerController.value.aspectRatio,
-                          child: VideoPlayer(_videoPlayerController),
+                          aspectRatio: _videoPlayerController!.value.aspectRatio,
+                          child: VideoPlayer(_videoPlayerController!),
                         ),
                       ),
                       // شريط تحكم عائم مصغر
@@ -231,16 +232,18 @@ class _LocalVideoPlayerScreenState extends State<LocalVideoPlayerScreen> {
                         child: GestureDetector(
                           onTap: () {
                             setState(() {
-                              _videoPlayerController.value.isPlaying
-                                  ? _videoPlayerController.pause()
-                                  : _videoPlayerController.play();
+                              if (_videoPlayerController != null) {
+                                _videoPlayerController!.value.isPlaying
+                                    ? _videoPlayerController!.pause()
+                                    : _videoPlayerController!.play();
+                              }
                             });
                           },
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
                             child: Icon(
-                              _videoPlayerController.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                              (_videoPlayerController?.value.isPlaying ?? false) ? Icons.pause_rounded : Icons.play_arrow_rounded,
                               color: AppColors.cyan,
                               size: 18,
                             ),

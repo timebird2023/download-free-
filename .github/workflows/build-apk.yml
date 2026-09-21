@@ -81,7 +81,6 @@ jobs:
         run: |
           python3 -c '
           import os
-
           dir_path = "android/app/src/main/java/com/boykta/pro_downloader"
           os.makedirs(dir_path, exist_ok=True)
           java_code = """package com.boykta.pro_downloader;
@@ -99,7 +98,6 @@ jobs:
           import io.flutter.embedding.engine.FlutterEngine;
           import io.flutter.plugin.common.MethodChannel;
           import io.flutter.plugins.GeneratedPluginRegistrant;
-
           import java.io.File;
           import java.nio.ByteBuffer;
           import java.util.concurrent.ExecutorService;
@@ -147,12 +145,10 @@ jobs:
                               final String videoPath = call.argument("videoPath");
                               final String audioPath = call.argument("audioPath");
                               final String outputPath = call.argument("outputPath");
-
                               if (videoPath == null || audioPath == null || outputPath == null) {
                                   result.error("INVALID_ARGS", "Paths cannot be null", null);
                                   return;
                               }
-
                               executor.execute(() -> {
                                   boolean success = muxNativeAudioVideo(videoPath, audioPath, outputPath);
                                   runOnUiThread(() -> result.success(success));
@@ -162,15 +158,12 @@ jobs:
                               final String outputPath = call.argument("outputPath");
                               final Number startMsNum = call.argument("startMs");
                               final Number endMsNum = call.argument("endMs");
-
                               if (inputPath == null || outputPath == null) {
                                   result.error("INVALID_ARGS", "Paths cannot be null", null);
                                   return;
                               }
-
                               final long startMs = startMsNum != null ? startMsNum.longValue() : 0L;
                               final long endMs = endMsNum != null ? endMsNum.longValue() : Long.MAX_VALUE;
-
                               executor.execute(() -> {
                                   boolean success = trimNativeAudio(inputPath, outputPath, startMs, endMs);
                                   runOnUiThread(() -> result.success(success));
@@ -178,12 +171,10 @@ jobs:
                           } else if ("extractAudio".equals(call.method)) {
                               final String videoPath = call.argument("videoPath");
                               final String outputPath = call.argument("outputPath");
-
                               if (videoPath == null || outputPath == null) {
                                   result.error("INVALID_ARGS", "Paths cannot be null", null);
                                   return;
                               }
-
                               executor.execute(() -> {
                                   boolean success = extractNativeAudio(videoPath, outputPath);
                                   runOnUiThread(() -> result.success(success));
@@ -198,7 +189,6 @@ jobs:
                   MediaExtractor videoExtractor = new MediaExtractor();
                   MediaExtractor audioExtractor = new MediaExtractor();
                   MediaMuxer muxer = null;
-
                   try {
                       File vFile = new File(videoPath);
                       File aFile = new File(audioPath);
@@ -206,26 +196,29 @@ jobs:
                           Log.e(TAG, "Source files do not exist: v=" + vFile.exists() + ", a=" + aFile.exists());
                           return false;
                       }
-
                       videoExtractor.setDataSource(videoPath);
                       audioExtractor.setDataSource(audioPath);
 
                       int videoSourceTrack = -1;
+                      String videoMime = "";
                       for (int i = 0; i < videoExtractor.getTrackCount(); i++) {
                           MediaFormat format = videoExtractor.getTrackFormat(i);
                           String mime = format.getString(MediaFormat.KEY_MIME);
                           if (mime != null && mime.startsWith("video/")) {
                               videoSourceTrack = i;
+                              videoMime = mime.toLowerCase();
                               break;
                           }
                       }
 
                       int audioSourceTrack = -1;
+                      String audioMime = "";
                       for (int i = 0; i < audioExtractor.getTrackCount(); i++) {
                           MediaFormat format = audioExtractor.getTrackFormat(i);
                           String mime = format.getString(MediaFormat.KEY_MIME);
                           if (mime != null && mime.startsWith("audio/")) {
                               audioSourceTrack = i;
+                              audioMime = mime.toLowerCase();
                               break;
                           }
                       }
@@ -240,7 +233,12 @@ jobs:
                           outFile.delete();
                       }
 
-                      muxer = new MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+                      int outputFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
+                      if ((videoMime.contains("webm") || videoMime.contains("vp8") || videoMime.contains("vp9") || audioMime.contains("opus") || outputPath.toLowerCase().endsWith(".webm")) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                          outputFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM;
+                      }
+
+                      muxer = new MediaMuxer(outputPath, outputFormat);
 
                       videoExtractor.selectTrack(videoSourceTrack);
                       MediaFormat videoFormat = videoExtractor.getTrackFormat(videoSourceTrack);
@@ -261,32 +259,43 @@ jobs:
                           int s = audioFormat.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
                           if (s > maxBufferSize) maxBufferSize = s;
                       }
-
                       ByteBuffer buffer = ByteBuffer.allocateDirect(maxBufferSize);
                       MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
 
                       boolean videoDone = false;
                       boolean audioDone = false;
+                      long videoStartPts = -1;
+                      long audioStartPts = -1;
                       long lastVideoTime = -1;
                       long lastAudioTime = -1;
+                      int videoSampleCount = 0;
+                      int audioSampleCount = 0;
 
                       while (!videoDone || !audioDone) {
-                          long videoTime = videoDone ? Long.MAX_VALUE : videoExtractor.getSampleTime();
-                          long audioTime = audioDone ? Long.MAX_VALUE : audioExtractor.getSampleTime();
+                          long vTime = videoDone ? Long.MAX_VALUE : videoExtractor.getSampleTime();
+                          long aTime = audioDone ? Long.MAX_VALUE : audioExtractor.getSampleTime();
 
-                          if (!videoDone && (audioDone || videoTime <= audioTime)) {
+                          long normV = (vTime == Long.MAX_VALUE || videoStartPts == -1) ? vTime : Math.max(0, vTime - videoStartPts);
+                          long normA = (aTime == Long.MAX_VALUE || audioStartPts == -1) ? aTime : Math.max(0, aTime - audioStartPts);
+
+                          if (!videoDone && (audioDone || normV <= normA)) {
                               bufferInfo.offset = 0;
                               bufferInfo.size = videoExtractor.readSampleData(buffer, 0);
                               if (bufferInfo.size < 0) {
                                   videoDone = true;
                               } else {
-                                  long sampleTime = videoExtractor.getSampleTime();
-                                  if (sampleTime < lastVideoTime) sampleTime = lastVideoTime;
-                                  lastVideoTime = sampleTime;
-
-                                  bufferInfo.presentationTimeUs = sampleTime;
+                                  long rawSampleTime = videoExtractor.getSampleTime();
+                                  if (videoStartPts == -1) {
+                                      videoStartPts = rawSampleTime >= 0 ? rawSampleTime : 0;
+                                  }
+                                  long pts = rawSampleTime - videoStartPts;
+                                  if (pts < 0) pts = 0;
+                                  if (pts <= lastVideoTime) pts = lastVideoTime + 1000;
+                                  lastVideoTime = pts;
+                                  bufferInfo.presentationTimeUs = pts;
                                   bufferInfo.flags = videoExtractor.getSampleFlags();
                                   muxer.writeSampleData(muxerVideoTrack, buffer, bufferInfo);
+                                  videoSampleCount++;
                                   videoExtractor.advance();
                               }
                           } else if (!audioDone) {
@@ -295,24 +304,31 @@ jobs:
                               if (bufferInfo.size < 0) {
                                   audioDone = true;
                               } else {
-                                  long sampleTime = audioExtractor.getSampleTime();
-                                  if (sampleTime < lastAudioTime) sampleTime = lastAudioTime;
-                                  lastAudioTime = sampleTime;
-
-                                  bufferInfo.presentationTimeUs = sampleTime;
+                                  long rawSampleTime = audioExtractor.getSampleTime();
+                                  if (audioStartPts == -1) {
+                                      audioStartPts = rawSampleTime >= 0 ? rawSampleTime : 0;
+                                  }
+                                  long pts = rawSampleTime - audioStartPts;
+                                  if (pts < 0) pts = 0;
+                                  if (pts <= lastAudioTime) pts = lastAudioTime + 1000;
+                                  lastAudioTime = pts;
+                                  bufferInfo.presentationTimeUs = pts;
                                   bufferInfo.flags = audioExtractor.getSampleFlags();
                                   muxer.writeSampleData(muxerAudioTrack, buffer, bufferInfo);
+                                  audioSampleCount++;
                                   audioExtractor.advance();
                               }
                           }
                       }
 
-                      muxer.stop();
+                      if (videoSampleCount > 0 && audioSampleCount > 0) {
+                          muxer.stop();
+                      }
                       muxer.release();
                       muxer = null;
 
                       File finalFile = new File(outputPath);
-                      return finalFile.exists() && finalFile.length() > 0;
+                      return finalFile.exists() && finalFile.length() > 0 && videoSampleCount > 0 && audioSampleCount > 0;
                   } catch (Exception e) {
                       Log.e(TAG, "Native MediaMuxer error: " + e.getMessage(), e);
                       return false;
@@ -328,33 +344,36 @@ jobs:
               private boolean trimNativeAudio(String inputPath, String outputPath, long startMs, long endMs) {
                   MediaExtractor extractor = new MediaExtractor();
                   MediaMuxer muxer = null;
-
                   try {
                       extractor.setDataSource(inputPath);
                       int audioSourceTrack = -1;
+                      MediaFormat format = null;
+                      String mimeType = "";
                       for (int i = 0; i < extractor.getTrackCount(); i++) {
-                          MediaFormat format = extractor.getTrackFormat(i);
-                          String mime = format.getString(MediaFormat.KEY_MIME);
+                          MediaFormat f = extractor.getTrackFormat(i);
+                          String mime = f.getString(MediaFormat.KEY_MIME);
                           if (mime != null && mime.startsWith("audio/")) {
                               audioSourceTrack = i;
+                              format = f;
+                              mimeType = mime.toLowerCase();
                               break;
                           }
                       }
-                      if (audioSourceTrack == -1) return false;
-
+                      if (audioSourceTrack == -1 || format == null) return false;
                       extractor.selectTrack(audioSourceTrack);
-                      MediaFormat format = extractor.getTrackFormat(audioSourceTrack);
-
                       File outFile = new File(outputPath);
                       if (outFile.exists()) outFile.delete();
 
-                      muxer = new MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+                      int outFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
+                      if ((mimeType.contains("opus") || outputPath.toLowerCase().endsWith(".webm") || outputPath.toLowerCase().endsWith(".ogg")) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                          outFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM;
+                      }
+                      muxer = new MediaMuxer(outputPath, outFormat);
                       int audioTrackIndex = muxer.addTrack(format);
                       muxer.start();
 
                       long startUs = startMs * 1000L;
                       long endUs = endMs * 1000L;
-
                       extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC);
 
                       int maxBufferSize = 512 * 1024;
@@ -362,34 +381,37 @@ jobs:
                           int s = format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
                           if (s > maxBufferSize) maxBufferSize = s;
                       }
-
                       ByteBuffer buffer = ByteBuffer.allocateDirect(maxBufferSize);
                       MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
                       long firstSampleTimeUs = -1;
+                      long lastSampleTimeUs = -1;
+                      int sampleCount = 0;
 
                       while (true) {
                           bufferInfo.offset = 0;
                           bufferInfo.size = extractor.readSampleData(buffer, 0);
                           if (bufferInfo.size < 0) break;
-
                           long sampleTimeUs = extractor.getSampleTime();
                           if (sampleTimeUs > endUs) break;
-
                           if (sampleTimeUs >= startUs) {
                               if (firstSampleTimeUs == -1) {
-                                  firstSampleTimeUs = sampleTimeUs;
+                                  firstSampleTimeUs = sampleTimeUs >= 0 ? sampleTimeUs : 0;
                               }
-                              bufferInfo.presentationTimeUs = sampleTimeUs - firstSampleTimeUs;
+                              long pts = sampleTimeUs - firstSampleTimeUs;
+                              if (pts < 0) pts = 0;
+                              if (pts <= lastSampleTimeUs) pts = lastSampleTimeUs + 1000;
+                              lastSampleTimeUs = pts;
+                              bufferInfo.presentationTimeUs = pts;
                               bufferInfo.flags = extractor.getSampleFlags();
                               muxer.writeSampleData(audioTrackIndex, buffer, bufferInfo);
+                              sampleCount++;
                           }
                           extractor.advance();
                       }
-
+                      if (sampleCount == 0) return false;
                       muxer.stop();
                       muxer.release();
                       muxer = null;
-
                       File finalFile = new File(outputPath);
                       return finalFile.exists() && finalFile.length() > 0;
                   } catch (Exception e) {
@@ -406,57 +428,65 @@ jobs:
               private boolean extractNativeAudio(String videoPath, String outputPath) {
                   MediaExtractor extractor = new MediaExtractor();
                   MediaMuxer muxer = null;
-
                   try {
                       extractor.setDataSource(videoPath);
-                      int audioSourceTrack = -1;
+                      int audioTrackIndex = -1;
+                      MediaFormat format = null;
+                      String mimeType = "";
                       for (int i = 0; i < extractor.getTrackCount(); i++) {
-                          MediaFormat format = extractor.getTrackFormat(i);
-                          String mime = format.getString(MediaFormat.KEY_MIME);
+                          MediaFormat f = extractor.getTrackFormat(i);
+                          String mime = f.getString(MediaFormat.KEY_MIME);
                           if (mime != null && mime.startsWith("audio/")) {
-                              audioSourceTrack = i;
+                              audioTrackIndex = i;
+                              format = f;
+                              mimeType = mime.toLowerCase();
                               break;
                           }
                       }
-                      if (audioSourceTrack == -1) {
-                          Log.e(TAG, "No audio track found in video: " + videoPath);
-                          return false;
-                      }
-
-                      extractor.selectTrack(audioSourceTrack);
-                      MediaFormat format = extractor.getTrackFormat(audioSourceTrack);
-
+                      if (audioTrackIndex == -1 || format == null) return false;
+                      extractor.selectTrack(audioTrackIndex);
                       File outFile = new File(outputPath);
                       if (outFile.exists()) outFile.delete();
 
-                      muxer = new MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-                      int audioTrackIndex = muxer.addTrack(format);
+                      int outFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
+                      if ((mimeType.contains("opus") || outputPath.toLowerCase().endsWith(".webm") || outputPath.toLowerCase().endsWith(".ogg")) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                          outFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM;
+                      }
+                      muxer = new MediaMuxer(outputPath, outFormat);
+                      int muxTrack = muxer.addTrack(format);
                       muxer.start();
 
-                      int maxBufferSize = 1024 * 1024;
+                      int maxBufferSize = 512 * 1024;
                       if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
                           int s = format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
                           if (s > maxBufferSize) maxBufferSize = s;
                       }
-
                       ByteBuffer buffer = ByteBuffer.allocateDirect(maxBufferSize);
                       MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+                      long firstSampleTimeUs = -1;
+                      long lastAudioPts = -1;
+                      int sampleCount = 0;
 
                       while (true) {
                           bufferInfo.offset = 0;
                           bufferInfo.size = extractor.readSampleData(buffer, 0);
                           if (bufferInfo.size < 0) break;
-
-                          bufferInfo.presentationTimeUs = extractor.getSampleTime();
+                          long rawPts = extractor.getSampleTime();
+                          if (firstSampleTimeUs == -1) firstSampleTimeUs = rawPts >= 0 ? rawPts : 0;
+                          long pts = rawPts - firstSampleTimeUs;
+                          if (pts < 0) pts = 0;
+                          if (pts <= lastAudioPts) pts = lastAudioPts + 1000;
+                          lastAudioPts = pts;
+                          bufferInfo.presentationTimeUs = pts;
                           bufferInfo.flags = extractor.getSampleFlags();
-                          muxer.writeSampleData(audioTrackIndex, buffer, bufferInfo);
+                          muxer.writeSampleData(muxTrack, buffer, bufferInfo);
+                          sampleCount++;
                           extractor.advance();
                       }
-
+                      if (sampleCount == 0) return false;
                       muxer.stop();
                       muxer.release();
                       muxer = null;
-
                       File finalFile = new File(outputPath);
                       return finalFile.exists() && finalFile.length() > 0;
                   } catch (Exception e) {
@@ -475,7 +505,6 @@ jobs:
               f.write(java_code)
           '
           find android/app/src/main -name "MainActivity.kt" -exec rm -f {} +
-
       - name: Apply Gradle and Android Build Fixes
         run: |
           if [ -f "android/settings.gradle" ]; then
@@ -544,8 +573,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.3.4"
-          RELEASE_TITLE="Boykta Pro v1.3.4 - ترقية وتفعيل جودة الفيديو إلى 1080p Full HD كخيار أساسي فائق الدقة"
+          TAG="v1.3.5"
+          RELEASE_TITLE="Boykta Pro v1.3.5 - إصلاح صوت الفيديو عالي الجودة وتحسينات الأمان والاستقرار"
           APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
           
           NOTES="🚀 **Boykta Pro v1.3.4** - رفع دقة التحميل إلى أقصى جودة ممكنة (1080p Full HD) عبر الرابط!

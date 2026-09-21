@@ -307,7 +307,7 @@ class BackendService {
           'size': stream.size.totalMegaBytes.toStringAsFixed(1),
           'size_bytes': stream.size.totalBytes,
           'container': stream.container.name.toLowerCase(),
-          'ext': 'mp4', 
+          'ext': stream.container.name.toLowerCase() == 'webm' ? 'webm' : 'mp4',
           'needs_merge': true,
         });
       }
@@ -535,7 +535,7 @@ class BackendService {
     DownloadTask task = DownloadTask(
       id: notifId,
       title: cleanTitle,
-      isAudio: ext == 'mp3',
+      isAudio: const ['mp3', 'm4a', 'aac', 'wav', 'ogg', 'opus', 'flac'].contains(ext.toLowerCase()),
       status: 'جاري بدء التحميل...',
     );
 
@@ -688,14 +688,26 @@ class BackendService {
             m ??= await _yt.videos.streamsClient.getManifest(videoId);
             _streamManifestCache[videoId] = m;
             
-            // اختيار دفق الصوت الأفضل (نفضل mp4/aac ثم webm/opus)
-            final mp4Audios = m.audioOnly.where((s) => s.container.name.toLowerCase() == 'mp4').toList();
-            if (mp4Audios.isNotEmpty) {
-              mp4Audios.sort((a, b) => b.bitrate.compareTo(a.bitrate));
-              audioUrlToDownload = mp4Audios.first.url.toString();
-              audioTagToDownload = mp4Audios.first.tag;
-              audioExt = 'm4a';
-            } else if (m.audioOnly.isNotEmpty) {
+            // اختيار دفق صوت متوافق بدقة مع حاوية الفيديو لمنع تعطل MediaMuxer
+            final bool isWebmVideo = ext.toLowerCase() == 'webm' || (videoTag != null && m.videoOnly.any((s) => s.tag == videoTag && s.container.name.toLowerCase() == 'webm'));
+            if (isWebmVideo) {
+              final webmAudios = m.audioOnly.where((s) => s.container.name.toLowerCase() == 'webm').toList();
+              if (webmAudios.isNotEmpty) {
+                webmAudios.sort((a, b) => b.bitrate.compareTo(a.bitrate));
+                audioUrlToDownload = webmAudios.first.url.toString();
+                audioTagToDownload = webmAudios.first.tag;
+                audioExt = 'webm';
+              }
+            } else {
+              final mp4Audios = m.audioOnly.where((s) => s.container.name.toLowerCase() == 'mp4').toList();
+              if (mp4Audios.isNotEmpty) {
+                mp4Audios.sort((a, b) => b.bitrate.compareTo(a.bitrate));
+                audioUrlToDownload = mp4Audios.first.url.toString();
+                audioTagToDownload = mp4Audios.first.tag;
+                audioExt = 'm4a';
+              }
+            }
+            if (audioUrlToDownload.isEmpty && m.audioOnly.isNotEmpty) {
               final best = m.audioOnly.withHighestBitrate();
               audioUrlToDownload = best.url.toString();
               audioTagToDownload = best.tag;
@@ -1177,7 +1189,11 @@ Future<Map<String, dynamic>> getPlayableStream(String videoId) async {
               throw Exception("HTTP status ${res.statusCode}");
             }
 
-            chunkSink = partFile.openWrite(mode: FileMode.append);
+            final bool isFullBody = res.statusCode == 200;
+            if (isFullBody && downloadedBytes > 0) {
+              downloadedBytes = 0;
+            }
+            chunkSink = partFile.openWrite(mode: isFullBody ? FileMode.write : FileMode.append);
             int bytesInChunk = 0;
 
             await for (final data in res) {
@@ -1199,6 +1215,9 @@ Future<Map<String, dynamic>> getPlayableStream(String videoId) async {
               downloadedBytes += bytesInChunk;
               chunkSuccess = true;
               onReceiveProgress(downloadedBytes, totalBytes);
+              if (isFullBody) {
+                break;
+              }
             } else {
               throw Exception("مقطع فارغ");
             }

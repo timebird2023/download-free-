@@ -712,7 +712,7 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
       onRefresh: _loadFiles,
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-        padding: EdgeInsets.only(bottom: _currentAudio != null ? 120 : 20, top: 10), 
+        padding: EdgeInsets.only(bottom: _currentAudio != null ? 220 : 160, top: 10), 
         itemCount: files.length,
         itemBuilder: (context, index) {
           final file = files[index] as File;
