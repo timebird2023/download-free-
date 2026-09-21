@@ -237,7 +237,7 @@ class WebShareServer {
       final canonicalPath = file.resolveSymbolicLinksSync();
       if (canonicalPath.contains(".vault_private")) return false;
 
-      final downloadedFiles = await _backend.getDownloadedFiles();
+      final downloadedFiles = await BackendService().getDownloadedFiles();
       for (final f in downloadedFiles) {
         try {
           if (f.resolveSymbolicLinksSync() == canonicalPath) {
