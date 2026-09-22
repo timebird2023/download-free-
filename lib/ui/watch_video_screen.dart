@@ -6,7 +6,6 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../core/app_colors.dart';
 import '../services/backend_service.dart';
-import '../services/ad_service.dart';
 
 class WatchVideoScreen extends StatefulWidget {
   final yt.Video video;
@@ -722,10 +721,6 @@ class _FormatSelectionSheetState extends State<FormatSelectionSheet> {
 
   void _triggerDownload(Map<String, dynamic> format) {
     Navigator.pop(context);
-
-    try {
-      AdService().showInterstitialAd();
-    } catch (_) {}
 
     BackendService().startDownloadInBackground(
       selectedUrl: format['url'],

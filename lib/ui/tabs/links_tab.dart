@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/app_colors.dart';
 import '../../services/backend_service.dart';
-import '../../services/ad_service.dart';
 import '../widgets/download_dialogs.dart';
 
 class LinksTab extends StatefulWidget {
@@ -267,7 +266,6 @@ class _LinksTabState extends State<LinksTab> {
       return;
     }
 
-    AdService().showInterstitialAd();
 
     showDialog(
       context: context,
@@ -824,10 +822,6 @@ class _LinksTabState extends State<LinksTab> {
                           ),
                         ),
                         onPressed: () {
-                          try {
-                            AdService().showInterstitialAd();
-                          } catch (_) {}
-
                           _backend.startDownloadInBackground(
                             selectedUrl: _selectedFormat!['url'],
                             title: title,

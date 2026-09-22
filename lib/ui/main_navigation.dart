@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../core/app_colors.dart';
 import '../services/backend_service.dart';
-import '../services/ad_service.dart';
 import 'tabs/youtube_tab.dart';
 import 'tabs/browser_tab.dart';
 import 'tabs/links_tab.dart';
@@ -48,38 +47,38 @@ class _MainNavigationState extends State<MainNavigation> {
             return const SizedBox.shrink();
           }
           // شريط التنقل الزجاجي
-              ValueListenableBuilder<String>(
-                valueListenable: _backend.langNotifier,
-                builder: (context, lang, child) {
-                  return Container(
-                    margin: const EdgeInsets.only(left: 12, right: 12, bottom: 18),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(25),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                        child: Container(
-                          height: 68,
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceLight.withOpacity(0.55),
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(color: Colors.white.withOpacity(0.06)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _buildNavItem(Icons.play_circle_fill, _backend.t('youtube'), 0),
-                              _buildNavItem(Icons.explore_rounded, _backend.t('browser'), 1),
-                              _buildNavItem(Icons.link_rounded, _backend.t('link'), 2),
-                              _buildNavItem(Icons.download_rounded, _backend.t('downloads'), 3),
-                              _buildNavItem(Icons.settings_rounded, _backend.t('settings'), 4),
-                            ],
-                          ),
-                        ),
+          return ValueListenableBuilder<String>(
+            valueListenable: _backend.langNotifier,
+            builder: (context, lang, child) {
+              return Container(
+                margin: const EdgeInsets.only(left: 12, right: 12, bottom: 18),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(25),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                    child: Container(
+                      height: 68,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLight.withOpacity(0.55),
+                        borderRadius: BorderRadius.circular(25),
+                        border: Border.all(color: Colors.white.withOpacity(0.06)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildNavItem(Icons.play_circle_fill, _backend.t('youtube'), 0),
+                          _buildNavItem(Icons.explore_rounded, _backend.t('browser'), 1),
+                          _buildNavItem(Icons.link_rounded, _backend.t('link'), 2),
+                          _buildNavItem(Icons.download_rounded, _backend.t('downloads'), 3),
+                          _buildNavItem(Icons.settings_rounded, _backend.t('settings'), 4),
+                        ],
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                ),
+              );
+            },
+          );
         },
       ),
     );

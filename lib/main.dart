@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'core/app_colors.dart';
 import 'services/backend_service.dart';
-import 'services/ad_service.dart';
 import 'ui/main_navigation.dart';
 import 'ui/splash_screen.dart';
 
@@ -16,12 +15,7 @@ void main() async {
     debugPrint('Backend Init Error: $e');
   }
 
-  try {
-    await AdService.init(); 
-    AdService().loadInterstitialAd();
-  } catch (e) {
-    debugPrint('Unity Ads Init Error: $e');
-  }
+
 
   // انطلاق التطبيق بغض النظر عن أي أخطاء في الخلفية
   runApp(const BoyktaApp());
