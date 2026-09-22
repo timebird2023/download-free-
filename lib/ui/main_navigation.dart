@@ -19,7 +19,6 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   final BackendService _backend = BackendService();
   int _currentIndex = 0;
-  bool _isBannerLoaded = false;
 
   final List<Widget> _tabs = const [
     YoutubeTab(),
@@ -48,30 +47,7 @@ class _MainNavigationState extends State<MainNavigation> {
           if (_currentIndex == 1 && isExpanded) {
             return const SizedBox.shrink();
           }
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // شريط إعلانات Unity Ads (Banner Strip)
-              ValueListenableBuilder<bool>(
-                valueListenable: AdService().isInitializedNotifier,
-                builder: (context, isInit, _) {
-                  if (!isInit) return const SizedBox.shrink();
-                  return Container(
-                    alignment: Alignment.center,
-                    height: 50,
-                    margin: const EdgeInsets.only(bottom: 6),
-                    child: AdService().buildBannerWidget(
-                      onLoaded: () {
-                        if (mounted && !_isBannerLoaded) {
-                          setState(() => _isBannerLoaded = true);
-                        }
-                      },
-                    ),
-                  );
-                },
-              ),
-
-              // شريط التنقل الزجاجي
+          // شريط التنقل الزجاجي
               ValueListenableBuilder<String>(
                 valueListenable: _backend.langNotifier,
                 builder: (context, lang, child) {
@@ -104,8 +80,6 @@ class _MainNavigationState extends State<MainNavigation> {
                   );
                 },
               ),
-            ],
-          );
         },
       ),
     );

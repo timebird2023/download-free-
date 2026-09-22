@@ -548,10 +548,6 @@ jobs:
           -keep class io.flutter.plugins.GeneratedPluginRegistrant { *; }
           -keep class * implements io.flutter.embedding.engine.plugins.FlutterPlugin { *; }
           -keep class * implements io.flutter.plugin.common.PluginRegistry$PluginRegistrantCallback { *; }
-          -keep class com.unity3d.ads.** { *; }
-          -keep class com.unity3d.services.** { *; }
-          -dontwarn com.unity3d.ads.**
-          -dontwarn com.unity3d.services.**
           EOF
 
       - name: Install Dependencies
@@ -573,8 +569,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.3.5"
-          RELEASE_TITLE="Boykta Pro v1.3.5 - إصلاح صوت الفيديو عالي الجودة وتحسينات الأمان والاستقرار"
+          TAG="v1.4.0"
+          RELEASE_TITLE="Boykta Pro v1.4.0 - تجربة نظيفة وخالية تماماً من الإعلانات مع أقصى أداء"
           APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
           
           NOTES="🚀 **Boykta Pro v1.3.4** - رفع دقة التحميل إلى أقصى جودة ممكنة (1080p Full HD) عبر الرابط!
