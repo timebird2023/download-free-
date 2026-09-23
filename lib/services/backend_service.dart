@@ -187,38 +187,42 @@ class BackendService {
     String badge = 'SD';
     String desc = 'جودة قياسية مناسبة للهواتف';
 
-    if (lower.contains('144')) {
-      order = 144;
-      badge = 'توفير فائق';
-      desc = 'أقل حجم ممكن • توفير فائق للبيانات • مناسب للشبكات البطيئة';
-    } else if (lower.contains('240')) {
-      order = 240;
-      badge = 'اقتصادي';
-      desc = 'حجم صغير جداً • تصفح سريع واستهلاك محدود جداً للمساحة';
-    } else if (lower.contains('360')) {
-      order = 360;
-      badge = 'متوازن SD';
-      desc = 'جودة قياسية متوازنة • استهلاك منخفض للبيانات والبطارية';
-    } else if (lower.contains('480')) {
-      order = 480;
-      badge = 'دقة جيدة SD+';
-      desc = 'دقة مريحة وواضحة جداً لشاشات الهواتف المحمولة';
-    } else if (lower.contains('720')) {
-      order = 720;
-      badge = 'عالية HD';
-      desc = 'عالية الدقة HD • توازن مثالي بين نقاء الصورة وسرعة التحميل';
-    } else if (lower.contains('1080')) {
-      order = 1080;
-      badge = '1080p FHD';
-      desc = 'دقة فائقة 1080p Full HD • تفاصيل سينمائية كريستالية ونقاء مذهل';
-    } else if (lower.contains('1440') || lower.contains('2k')) {
-      order = 1440;
-      badge = '2K Quad HD';
-      desc = 'دقة 2K فائقة • وضوح استثنائي للشاشات الكبيرة واللوحية';
+    if (lower.contains('4320') || lower.contains('8k')) {
+      order = 4320;
+      badge = '8K FUHD Ultra';
+      desc = 'أقصى دقة 8K فائقة الخيال • تفاصيل سينمائية كريستالية للشاشات العملاقة';
     } else if (lower.contains('2160') || lower.contains('4k')) {
       order = 2160;
       badge = '4K Ultra HD';
       desc = 'أعلى دقة 4K • أقصى نقاء وتفاصيل بصرية مذهلة للشاشات العملاقة';
+    } else if (lower.contains('1440') || lower.contains('2k')) {
+      order = 1440;
+      badge = '2K Quad HD';
+      desc = 'دقة 2K فائقة • وضوح استثنائي للشاشات الكبيرة واللوحية';
+    } else if (lower.contains('1080')) {
+      order = 1080;
+      badge = '1080p FHD';
+      desc = 'دقة فائقة 1080p Full HD • تفاصيل سينمائية كريستالية ونقاء مذهل';
+    } else if (lower.contains('720')) {
+      order = 720;
+      badge = 'عالية HD';
+      desc = 'عالية الدقة HD • توازن مثالي بين نقاء الصورة وسرعة التحميل';
+    } else if (lower.contains('480')) {
+      order = 480;
+      badge = 'دقة جيدة SD+';
+      desc = 'دقة مريحة وواضحة جداً لشاشات الهواتف المحمولة';
+    } else if (lower.contains('360')) {
+      order = 360;
+      badge = 'متوازن SD';
+      desc = 'جودة قياسية متوازنة • استهلاك منخفض للبيانات والبطارية';
+    } else if (lower.contains('240')) {
+      order = 240;
+      badge = 'اقتصادي';
+      desc = 'حجم صغير جداً • تصفح سريع واستهلاك محدود جداً للمساحة';
+    } else if (lower.contains('144')) {
+      order = 144;
+      badge = 'توفير فائق';
+      desc = 'أقل حجم ممكن • توفير فائق للبيانات • مناسب للشبكات البطيئة';
     } else {
       final match = RegExp(r'(\d+)p').firstMatch(lower);
       if (match != null) {
@@ -851,6 +855,12 @@ class BackendService {
       } catch (e) {
         // تجاهل
       }
+      // إشعار فوري لاستوديو ومعرض صور الأندرويد بالملف الجديد ليظهر فوراً
+      try {
+        const muxerChannel = MethodChannel('com.boykta.app/media_muxer');
+        await muxerChannel.invokeMethod('scanMediaFile', {'path': finalOutputPath});
+      } catch (_) {}
+
       return finalOutputPath;
     } catch (e) {
       task.isFailed = true;

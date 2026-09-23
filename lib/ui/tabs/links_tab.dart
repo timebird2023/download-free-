@@ -12,7 +12,7 @@ class LinksTab extends StatefulWidget {
   State<LinksTab> createState() => _LinksTabState();
 }
 
-class _LinksTabState extends State<LinksTab> {
+class _LinksTabState extends State<LinksTab> with WidgetsBindingObserver {
   final TextEditingController _urlController = TextEditingController();
   final BackendService _backend = BackendService();
 
@@ -31,7 +31,22 @@ class _LinksTabState extends State<LinksTab> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkClipboardForMedia();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkClipboardForMedia();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _urlController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkClipboardForMedia() async {
@@ -275,12 +290,6 @@ class _LinksTabState extends State<LinksTab> {
         isAudio: isAudio,
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _urlController.dispose();
-    super.dispose();
   }
 
   @override

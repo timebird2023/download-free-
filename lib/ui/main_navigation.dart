@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../core/app_colors.dart';
 import '../services/backend_service.dart';
 import 'tabs/youtube_tab.dart';
-import 'tabs/browser_tab.dart';
 import 'tabs/links_tab.dart';
 import 'tabs/downloads_tab.dart';
 import 'tabs/settings_tab.dart';
@@ -21,7 +20,6 @@ class _MainNavigationState extends State<MainNavigation> {
 
   final List<Widget> _tabs = const [
     YoutubeTab(),
-    BrowserTab(),
     LinksTab(),
     DownloadsTab(),
     SettingsTab(),
@@ -40,44 +38,34 @@ class _MainNavigationState extends State<MainNavigation> {
           );
         },
       ),
-      bottomNavigationBar: ValueListenableBuilder<bool>(
-        valueListenable: _backend.isBrowserExpanded,
-        builder: (context, isExpanded, child) {
-          if (_currentIndex == 1 && isExpanded) {
-            return const SizedBox.shrink();
-          }
-          // شريط التنقل الزجاجي
-          return ValueListenableBuilder<String>(
-            valueListenable: _backend.langNotifier,
-            builder: (context, lang, child) {
-              return Container(
-                margin: const EdgeInsets.only(left: 12, right: 12, bottom: 18),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(25),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                    child: Container(
-                      height: 68,
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceLight.withOpacity(0.55),
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(color: Colors.white.withOpacity(0.06)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildNavItem(Icons.play_circle_fill, _backend.t('youtube'), 0),
-                          _buildNavItem(Icons.explore_rounded, _backend.t('browser'), 1),
-                          _buildNavItem(Icons.link_rounded, _backend.t('link'), 2),
-                          _buildNavItem(Icons.download_rounded, _backend.t('downloads'), 3),
-                          _buildNavItem(Icons.settings_rounded, _backend.t('settings'), 4),
-                        ],
-                      ),
-                    ),
+      bottomNavigationBar: ValueListenableBuilder<String>(
+        valueListenable: _backend.langNotifier,
+        builder: (context, lang, child) {
+          return Container(
+            margin: const EdgeInsets.only(left: 14, right: 14, bottom: 18),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(25),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: Container(
+                  height: 68,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceLight.withOpacity(0.55),
+                    borderRadius: BorderRadius.circular(25),
+                    border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildNavItem(Icons.play_circle_fill, _backend.t('youtube'), 0),
+                      _buildNavItem(Icons.link_rounded, _backend.t('link'), 1),
+                      _buildNavItem(Icons.download_rounded, _backend.t('downloads'), 2),
+                      _buildNavItem(Icons.settings_rounded, _backend.t('settings'), 3),
+                    ],
                   ),
                 ),
-              );
-            },
+              ),
+            ),
           );
         },
       ),
@@ -92,7 +80,7 @@ class _MainNavigationState extends State<MainNavigation> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.cyan.withOpacity(0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
@@ -108,7 +96,7 @@ class _MainNavigationState extends State<MainNavigation> {
                   color: isSelected ? AppColors.cyan : AppColors.textMuted,
                   size: isSelected ? 24 : 22,
                 ),
-                if (index == 3)
+                if (index == 2)
                   ValueListenableBuilder<List<DownloadTask>>(
                     valueListenable: _backend.activeDownloads,
                     builder: (context, tasks, child) {

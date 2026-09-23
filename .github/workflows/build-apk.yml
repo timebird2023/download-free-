@@ -90,6 +90,7 @@ jobs:
           import android.media.MediaExtractor;
           import android.media.MediaFormat;
           import android.media.MediaMuxer;
+          import android.media.MediaScannerConnection;
           import android.os.Build;
           import android.util.Log;
           import android.util.Rational;
@@ -179,6 +180,14 @@ jobs:
                                   boolean success = extractNativeAudio(videoPath, outputPath);
                                   runOnUiThread(() -> result.success(success));
                               });
+                          } else if ("scanMediaFile".equals(call.method)) {
+                              final String filePath = call.argument("path");
+                              if (filePath != null) {
+                                  MediaScannerConnection.scanFile(getApplicationContext(), new String[]{filePath}, null, null);
+                                  result.success(true);
+                              } else {
+                                  result.error("INVALID_ARGS", "Path cannot be null", null);
+                              }
                           } else {
                               result.notImplemented();
                           }
@@ -250,7 +259,7 @@ jobs:
 
                       muxer.start();
 
-                      int maxBufferSize = 1024 * 1024 * 2;
+                      int maxBufferSize = 1024 * 1024 * 8;
                       if (videoFormat.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
                           int s = videoFormat.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
                           if (s > maxBufferSize) maxBufferSize = s;
@@ -328,6 +337,11 @@ jobs:
                       muxer = null;
 
                       File finalFile = new File(outputPath);
+                      if (finalFile.exists() && finalFile.length() > 0) {
+                          try {
+                              MediaScannerConnection.scanFile(getApplicationContext(), new String[]{outputPath}, null, null);
+                          } catch (Exception ignored) {}
+                      }
                       return finalFile.exists() && finalFile.length() > 0 && videoSampleCount > 0 && audioSampleCount > 0;
                   } catch (Exception e) {
                       Log.e(TAG, "Native MediaMuxer error: " + e.getMessage(), e);
@@ -569,20 +583,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.4.0"
-          RELEASE_TITLE="Boykta Pro v1.4.0 - تجربة نظيفة وخالية تماماً من الإعلانات مع أقصى أداء"
+          TAG="v1.5.0"
+          RELEASE_TITLE="Boykta Pro v1.5.0 - الجيل الجديد فائق السرعة لدقة تصل إلى 8K وخفيف الحجم"
           APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
           
-          NOTES="🚀 **Boykta Pro v1.3.4** - رفع دقة التحميل إلى أقصى جودة ممكنة (1080p Full HD) عبر الرابط!
+          NOTES="🚀 **Boykta Pro v1.5.0** - التحديث الأضخم: تخفيف الحجم بنسبة كبيرة، ودعم دقات خارقة تصل إلى 8K FUHD Ultra!
 
           ### ✨ أبرز ما في هذا التحديث:
-          - 💎 **ترقية جودة الفيديو إلى 1080p Full HD:** تمكين وتفعيل أعلى جودة متاحة 1080p FHD ووضعها في أعلى قائمة الخيارات وتحديدها تلقائياً عند لصق الرابط.
-          - 🎯 **اختيار ذكي وفوري:** ترتيب الجودات تنازلياً بحيث تظهر 1080p Full HD فوراً للمستخدم بدون الحاجة للبحث، مع تمييزها بشارة FHD المضيئة.
-          - ⚡ **دعم التنزيل الدفعي بدقة 1080p:** تحديث التنزيل الدفعي وقوائم التشغيل لاختيار 1080p FHD افتراضياً بدلاً من التقيد بـ 720p.
-          - 🎬 **تطوير محرك دمج الصوت والصورة:** دعم مسارات 1080p المدمجة عالية النقاء بتوافق تام مع مشغلات الأندرويد واستديو الصور.
-          - 🎮 **نظام إعلانات Unity Ads:** استمرار العمل الكامل لإعلانات Unity Ads الرسمية.
-          - 🛡️ **الحفاظ على كافة الميزات السابقة:** الخزنة الآمنة، متصفح ملء الشاشة، مشغل PiP، ووضع التوربو.
-          
+          - ⚡ **تخفيف الحجم والتخلص من الزوائد:** إزالة المتصفح المدمج ومكتبات WebView بالكامل، مما جعل التطبيق خفيفاً وفائق السلاسة، مع الحفاظ التام على دعم كافة المعماريات (Universal APK) ليعمل على أي هاتف أندرويد.
+          - 💎 **دعم دقات خارقة تصل إلى 8K و 4K:** تمكين دقات 8K FUHD Ultra (4320p) و 4K Ultra HD (2160p) و 2K Quad HD (1440p) و 1080p FHD ووضع أعلى دقة متاحة تلقائياً عند لصق الرابط.
+          - 🎯 **كاشف الروابط التلقائي الذكي من الحافظة:** بمجرد نسخ رابط أي فيديو وفتح التطبيق، يظهر إشعار سريع للتحميل الفوري بضغطة واحدة دون الحاجة للصق اليدوي.
+          - 🎬 **محرك دمج MediaMuxer أصلي مطور:** رفع مساحة الذاكرة المؤقتة للـ Codecs إلى 8MB لضمان دمج وسائط 8K و 4K بدون أي تأخير ودون الحاجة لمكتبات FFmpeg الثقيلة.
+          - 🖼️ **المزامنة الفورية مع استوديو ومعرض الصور:** مسح الملفات المحملة تلقائياً في MediaStore لتظهر فوراً في معرض الهاتف.
+          - 🛡️ **تجربة نظيفة 100% وخالية من الإعلانات.**
+
           📲 **التثبيت المباشر:** قم بتحميل ملف \`app-release.apk\` المرفق أدناه وتثبيته مباشرة على هاتفك الأندرويد."
 
           if gh release view "$TAG" > /dev/null 2>&1; then

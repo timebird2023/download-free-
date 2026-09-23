@@ -2,7 +2,7 @@ name: pro_downloader
 description: "A new Flutter project for downloading videos."
 publish_to: 'none'
 
-version: 1.4.0+36
+version: 1.5.0+37
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -25,14 +25,11 @@ dependencies:
   video_player: ^2.8.7
   chewie: 1.7.5
 
-  youtube_player_flutter: ^8.1.2
-
   video_thumbnail: ^0.5.3
   audioplayers: ^5.2.1
 
   flutter_local_notifications: ^17.1.2
   local_auth: ^2.2.0
-  webview_flutter: ^4.7.0
 
 dev_dependencies:
   flutter_test:
