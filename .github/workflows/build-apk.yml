@@ -136,7 +136,7 @@ jobs:
               }
 
               @Override
-              protected void onNewIntent(android.content.Intent intent) {
+              public void onNewIntent(@NonNull android.content.Intent intent) {
                   super.onNewIntent(intent);
                   setIntent(intent);
                   handleIntent(intent);
@@ -158,7 +158,7 @@ jobs:
               }
 
               @Override
-              protected void onUserLeaveHint() {
+              public void onUserLeaveHint() {
                   super.onUserLeaveHint();
                   if (isVideoPlaying && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       try {
