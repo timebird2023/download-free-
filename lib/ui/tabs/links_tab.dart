@@ -24,6 +24,7 @@ class _LinksTabState extends State<LinksTab> with WidgetsBindingObserver {
   Map<String, dynamic>? _playlistData;
   Map<String, dynamic>? _selectedFormat;
   String? _detectedClipboardUrl;
+  bool _isQualityBoostEnabled = true;
 
   // تحديد عناصر قائمة التشغيل
   final Set<int> _selectedPlaylistIndices = {};
@@ -33,6 +34,19 @@ class _LinksTabState extends State<LinksTab> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkClipboardForMedia();
+    _backend.pendingSharedUrl.addListener(_handleSharedUrl);
+    if (_backend.pendingSharedUrl.value != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _handleSharedUrl());
+    }
+  }
+
+  void _handleSharedUrl() {
+    final url = _backend.pendingSharedUrl.value;
+    if (url != null && url.isNotEmpty) {
+      _urlController.text = url;
+      _backend.pendingSharedUrl.value = null;
+      _analyzeLink();
+    }
   }
 
   @override
@@ -44,6 +58,7 @@ class _LinksTabState extends State<LinksTab> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _backend.pendingSharedUrl.removeListener(_handleSharedUrl);
     WidgetsBinding.instance.removeObserver(this);
     _urlController.dispose();
     super.dispose();
@@ -466,8 +481,86 @@ class _LinksTabState extends State<LinksTab> with WidgetsBindingObserver {
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
+          _buildQualityBoostBar(),
+          const SizedBox(height: 14),
           _buildQuickPlatforms(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQualityBoostBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _isQualityBoostEnabled
+            ? AppColors.cyan.withOpacity(0.08)
+            : AppColors.surfaceLight.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isQualityBoostEnabled
+              ? AppColors.cyan.withOpacity(0.3)
+              : Colors.white.withOpacity(0.05),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _isQualityBoostEnabled ? AppColors.cyan.withOpacity(0.2) : Colors.white10,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.auto_awesome,
+              color: _isQualityBoostEnabled ? AppColors.cyan : Colors.white60,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'تقنية تعزيز الجودة والنقاء (Ultra Quality Boost)',
+                  style: TextStyle(
+                    color: _isQualityBoostEnabled ? Colors.white : AppColors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _isQualityBoostEnabled
+                      ? 'مفعّل: سحب الفيديوهات والريلز والستوريات بأعلى Bitrate وصوت نقي 320kbps'
+                      : 'معطّل: التحميل بالجودة العادية المضغوطة',
+                  style: TextStyle(
+                    color: _isQualityBoostEnabled ? AppColors.cyan.withOpacity(0.85) : Colors.white38,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: _isQualityBoostEnabled,
+            activeColor: AppColors.cyan,
+            activeTrackColor: AppColors.cyan.withOpacity(0.4),
+            onChanged: (val) {
+              setState(() {
+                _isQualityBoostEnabled = val;
+                if (_hasResult && _mediaData != null) {
+                  final vList = _processFormats(List<Map<String, dynamic>>.from(_mediaData!['video'] ?? []));
+                  if (vList.isNotEmpty) {
+                    _selectedFormat = vList.first;
+                  }
+                }
+              });
+            },
+          ),
         ],
       ),
     );

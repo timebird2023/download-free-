@@ -73,6 +73,20 @@ jobs:
                       del act.attrib['{http://schemas.android.com/apk/res/android}taskAffinity']
                   act.set('{http://schemas.android.com/apk/res/android}supportsPictureInPicture', 'true')
                   act.set('{http://schemas.android.com/apk/res/android}configChanges', 'orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode')
+
+                  name = act.attrib.get('{http://schemas.android.com/apk/res/android}name', '')
+                  if 'MainActivity' in name or name == '.MainActivity':
+                      inf = ET.Element('intent-filter')
+                      act_elem = ET.Element('action')
+                      act_elem.set('{http://schemas.android.com/apk/res/android}name', 'android.intent.action.SEND')
+                      cat_elem = ET.Element('category')
+                      cat_elem.set('{http://schemas.android.com/apk/res/android}name', 'android.intent.category.DEFAULT')
+                      data_elem = ET.Element('data')
+                      data_elem.set('{http://schemas.android.com/apk/res/android}mimeType', 'text/plain')
+                      inf.append(act_elem)
+                      inf.append(cat_elem)
+                      inf.append(data_elem)
+                      act.append(inf)
               
           tree.write(path, encoding='utf-8', xml_declaration=True)
           "
@@ -107,8 +121,54 @@ jobs:
           public class MainActivity extends FlutterFragmentActivity {
               private static final String PIP_CHANNEL = "com.boykta.app/pip";
               private static final String MUXER_CHANNEL = "com.boykta.app/media_muxer";
+              private static final String SHARE_CHANNEL = "com.boykta.app/share_intent";
               private static final String TAG = "MainActivity";
               private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+              private MethodChannel shareMethodChannel = null;
+              private String pendingSharedText = null;
+              private boolean isVideoPlaying = false;
+
+              @Override
+              protected void onCreate(android.os.Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  handleIntent(getIntent());
+              }
+
+              @Override
+              protected void onNewIntent(android.content.Intent intent) {
+                  super.onNewIntent(intent);
+                  setIntent(intent);
+                  handleIntent(intent);
+              }
+
+              private void handleIntent(android.content.Intent intent) {
+                  if (intent != null && android.content.Intent.ACTION_SEND.equals(intent.getAction())) {
+                      String type = intent.getType();
+                      if (type != null && type.startsWith("text/")) {
+                          String sharedText = intent.getStringExtra(android.content.Intent.EXTRA_TEXT);
+                          if (sharedText != null && !sharedText.trim().isEmpty()) {
+                              pendingSharedText = sharedText.trim();
+                              if (shareMethodChannel != null) {
+                                  runOnUiThread(() -> shareMethodChannel.invokeMethod("onLinkReceived", pendingSharedText));
+                              }
+                          }
+                      }
+                  }
+              }
+
+              @Override
+              protected void onUserLeaveHint() {
+                  super.onUserLeaveHint();
+                  if (isVideoPlaying && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      try {
+                          PictureInPictureParams params = new PictureInPictureParams.Builder()
+                              .setAspectRatio(new Rational(16, 9))
+                              .build();
+                          enterPictureInPictureMode(params);
+                      } catch (Exception ignored) {}
+                  }
+              }
 
               @Override
               public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
@@ -118,6 +178,16 @@ jobs:
                   } catch (Exception e) {
                       Log.e(TAG, "Plugin registration error: " + e.getMessage());
                   }
+
+                  shareMethodChannel = new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), SHARE_CHANNEL);
+                  shareMethodChannel.setMethodCallHandler((call, result) -> {
+                      if ("getInitialSharedText".equals(call.method)) {
+                          result.success(pendingSharedText);
+                          pendingSharedText = null;
+                      } else {
+                          result.notImplemented();
+                      }
+                  });
 
                   new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), PIP_CHANNEL)
                       .setMethodCallHandler((call, result) -> {
@@ -135,6 +205,19 @@ jobs:
                               } else {
                                   result.error("NOT_SUPPORTED", "PiP requires Android Oreo (API 26) or higher", null);
                               }
+                          } else if ("setPlaying".equals(call.method)) {
+                              Boolean playing = call.argument("isPlaying");
+                              isVideoPlaying = (playing != null && playing);
+                              if (Build.VERSION.SDK_INT >= 31) {
+                                  try {
+                                      PictureInPictureParams params = new PictureInPictureParams.Builder()
+                                          .setAspectRatio(new Rational(16, 9))
+                                          .setAutoEnterEnabled(isVideoPlaying)
+                                          .build();
+                                      setPictureInPictureParams(params);
+                                  } catch (Exception ignored) {}
+                              }
+                              result.success(true);
                           } else {
                               result.notImplemented();
                           }
@@ -583,19 +666,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.5.0"
-          RELEASE_TITLE="Boykta Pro v1.5.0 - الجيل الجديد فائق السرعة لدقة تصل إلى 8K وخفيف الحجم"
+          TAG="v1.6.0"
+          RELEASE_TITLE="Boykta Pro v1.6.0 - التحديث الشامل: استقبال المشاركة، تعزيز جودة الريلز والستوريات، والمشغل العائم"
           APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
           
-          NOTES="🚀 **Boykta Pro v1.5.0** - التحديث الأضخم: تخفيف الحجم بنسبة كبيرة، ودعم دقات خارقة تصل إلى 8K FUHD Ultra!
+          NOTES="🚀 **Boykta Pro v1.6.0** - التحديث الشامل لمستوى احترافي غير مسبوق في تنزيل الوسائط!
 
           ### ✨ أبرز ما في هذا التحديث:
-          - ⚡ **تخفيف الحجم والتخلص من الزوائد:** إزالة المتصفح المدمج ومكتبات WebView بالكامل، مما جعل التطبيق خفيفاً وفائق السلاسة، مع الحفاظ التام على دعم كافة المعماريات (Universal APK) ليعمل على أي هاتف أندرويد.
-          - 💎 **دعم دقات خارقة تصل إلى 8K و 4K:** تمكين دقات 8K FUHD Ultra (4320p) و 4K Ultra HD (2160p) و 2K Quad HD (1440p) و 1080p FHD ووضع أعلى دقة متاحة تلقائياً عند لصق الرابط.
-          - 🎯 **كاشف الروابط التلقائي الذكي من الحافظة:** بمجرد نسخ رابط أي فيديو وفتح التطبيق، يظهر إشعار سريع للتحميل الفوري بضغطة واحدة دون الحاجة للصق اليدوي.
-          - 🎬 **محرك دمج MediaMuxer أصلي مطور:** رفع مساحة الذاكرة المؤقتة للـ Codecs إلى 8MB لضمان دمج وسائط 8K و 4K بدون أي تأخير ودون الحاجة لمكتبات FFmpeg الثقيلة.
-          - 🖼️ **المزامنة الفورية مع استوديو ومعرض الصور:** مسح الملفات المحملة تلقائياً في MediaStore لتظهر فوراً في معرض الهاتف.
-          - 🛡️ **تجربة نظيفة 100% وخالية من الإعلانات.**
+          - 📲 **استقبال الروابط من قائمة المشاركة (System Share Sheet):** يمكنك الآن الضغط على زر 'مشاركة' (Share) في أي تطبيق (يوتيوب، تيك توك، إنستغرام، فيسبوك، X، المتصفح) واختيار Boykta Pro ليفتح التطبيق ويبدأ فحص وتنزيل الفيديو فوراً دون نسخ ولصق يدوي.
+          - 🪟 **مشغل منبثق عائم تلقائي عند الخروج (Auto Floating PiP):** استمرار مشاهدة الفيديو في نافذة عائمة متجاوبة فور الخروج من التطبيق أو الضغط على زر الرئيسية (Home).
+          - ✨ **تقنية تعزيز الجودة والنقاء (AI / Ultra Quality Boost):** سحب الفيديوهات والريلز والستوريات بأعلى Bitrate ممكن وبدون ضغط خوارزمي، مع استخراج الصوت بنقاء كريستالي 320kbps.
+          - 🔔 **نظام إشعارات مطور وفوري:** تنبيهات مكتملة بالصوت والاهتزاز فور انتهاء التنزيل وتأكيد إضافة الملف لاستوديو ومعرض صور الهاتف، مع تنبيهات توضيحية في حال تعذر الاتصال.
+          - 🔁 **استئناف ذكي وتكرار آلي (Smart Resume & Retry):** تجزئة التنزيل لقطع متتالية مع 8 محاولات آلية ذكية لمعالجة انقطاع الشبكة بدون فقدان ما تم تحميله.
+          - 📸 **دعم ألبومات صور تيك توك الفائقة النقاء (Photo Slideshows):** تحميل كافة صور سلاسل تيك توك الأصلية بأعلى نقاء.
+          - ⚡ **تطبيق خفيف فائق السرعة وبدون أي إعلانات:** مبني ليعمل على كافة معالجات وهواتف أندرويد (Universal APK).
 
           📲 **التثبيت المباشر:** قم بتحميل ملف \`app-release.apk\` المرفق أدناه وتثبيته مباشرة على هاتفك الأندرويد."
 

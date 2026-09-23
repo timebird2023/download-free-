@@ -39,6 +39,12 @@ class _LocalVideoPlayerScreenState extends State<LocalVideoPlayerScreen> {
       _videoPlayerController = controller;
       await controller.initialize();
 
+      controller.addListener(() {
+        final isPlaying = _videoPlayerController?.value.isPlaying ?? false;
+        _pipChannel.invokeMethod('setPlaying', {'isPlaying': isPlaying}).catchError((_) {});
+      });
+      _pipChannel.invokeMethod('setPlaying', {'isPlaying': true}).catchError((_) {});
+
       if (mounted) {
         setState(() {
           _chewieController = ChewieController(
@@ -134,6 +140,7 @@ class _LocalVideoPlayerScreenState extends State<LocalVideoPlayerScreen> {
 
   @override
   void dispose() {
+    _pipChannel.invokeMethod('setPlaying', {'isPlaying': false}).catchError((_) {});
     _chewieController?.dispose();
     if (!_isBackgroundAudioEnabled) {
       _videoPlayerController?.dispose();

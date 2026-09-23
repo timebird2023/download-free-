@@ -44,6 +44,20 @@ class BackendService {
   
   final ValueNotifier<List<DownloadTask>> activeDownloads = ValueNotifier([]);
   final ValueNotifier<bool> isBrowserExpanded = ValueNotifier<bool>(false);
+  final ValueNotifier<String?> pendingSharedUrl = ValueNotifier<String?>(null);
+
+  String? extractFirstUrl(String text) {
+    final regex = RegExp(r'https?:\/\/[^\s]+', caseSensitive: false);
+    final match = regex.firstMatch(text);
+    if (match != null) {
+      var u = match.group(0)!;
+      while (u.endsWith(')') || u.endsWith(']') || u.endsWith('}') || u.endsWith('>') || u.endsWith('.') || u.endsWith(',')) {
+        u = u.substring(0, u.length - 1);
+      }
+      return u;
+    }
+    return null;
+  }
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
   
@@ -841,13 +855,17 @@ class BackendService {
           _notificationsPlugin.show(
             notifId + 1,
             '🎉 ${t("completed")}',
-            cleanTitle,
+            '$cleanTitle • تم الحفظ بنجاح وجاهز للعرض بالمعرض',
             const NotificationDetails(
               android: AndroidNotificationDetails(
-                'download_channel',
-                'تنزيلات Boykta',
-                importance: Importance.high,
+                'download_completed_channel',
+                'إشعارات اكتمال التنزيل',
+                channelDescription: 'تنبيه بصوت واهتزاز عند اكتمال تنزيل الفيديو أو الصوت',
+                importance: Importance.max,
                 priority: Priority.high,
+                playSound: true,
+                enableVibration: true,
+                styleInformation: BigTextStyleInformation(''),
               ),
             ),
           );
@@ -869,7 +887,22 @@ class BackendService {
       Future.delayed(const Duration(seconds: 4), () {
         activeDownloads.value = activeDownloads.value.where((t) => t.id != notifId).toList();
       });
-      try { _notificationsPlugin.cancel(notifId); } catch (_) {}
+      try {
+        _notificationsPlugin.cancel(notifId);
+        _notificationsPlugin.show(
+          notifId + 2,
+          '❌ فشل التنزيل',
+          '$cleanTitle: $e',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'download_error_channel',
+              'أخطاء التنزيل',
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+          ),
+        );
+      } catch (_) {}
       throw Exception('حدث خطأ: $e');
     }
   }

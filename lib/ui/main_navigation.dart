@@ -17,6 +17,7 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   final BackendService _backend = BackendService();
   int _currentIndex = 0;
+  static const MethodChannel _shareChannel = MethodChannel('com.boykta.app/share_intent');
 
   final List<Widget> _tabs = const [
     YoutubeTab(),
@@ -24,6 +25,42 @@ class _MainNavigationState extends State<MainNavigation> {
     DownloadsTab(),
     SettingsTab(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initShareIntentListener();
+  }
+
+  void _initShareIntentListener() async {
+    _shareChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onLinkReceived') {
+        final text = call.arguments?.toString();
+        if (text != null && text.isNotEmpty) {
+          _handleIncomingSharedText(text);
+        }
+      }
+    });
+
+    try {
+      final initial = await _shareChannel.invokeMethod<String>('getInitialSharedText');
+      if (initial != null && initial.isNotEmpty) {
+        _handleIncomingSharedText(initial);
+      }
+    } catch (_) {}
+  }
+
+  void _handleIncomingSharedText(String text) {
+    final url = _backend.extractFirstUrl(text);
+    if (url != null && url.isNotEmpty) {
+      _backend.pendingSharedUrl.value = url;
+      if (mounted) {
+        setState(() {
+          _currentIndex = 1; // الانتقال الفوري لتبويب الروابط
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

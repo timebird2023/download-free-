@@ -86,6 +86,12 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
 
       if (!mounted) return;
 
+      _videoPlayerController!.addListener(() {
+        final isPlaying = _videoPlayerController?.value.isPlaying ?? false;
+        _pipChannel.invokeMethod('setPlaying', {'isPlaying': isPlaying}).catchError((_) {});
+      });
+      _pipChannel.invokeMethod('setPlaying', {'isPlaying': true}).catchError((_) {});
+
       _chewieController = ChewieController(
         videoPlayerController: _videoPlayerController!,
         autoPlay: true,
@@ -296,6 +302,7 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
 
   @override
   void dispose() {
+    _pipChannel.invokeMethod('setPlaying', {'isPlaying': false}).catchError((_) {});
     if (!_isBackgroundAudioEnabled) {
       _chewieController?.dispose();
       _videoPlayerController?.dispose();
